@@ -1,3 +1,9 @@
+.idea
+Config.rsc
+
+# Files generated for Rascal resources
+src/*.rsc
+
 # eclipse stuff
 .metadata
 bin/**
@@ -12,16 +18,5 @@ local.properties
 .classpath
 .settings/
 .loadpath
-
-# maven stuff
-target/
-bin/
-/bin
-/bin
-/bin
-/bin
-/bin
-/bin
-/bin
 
 .DS_Store

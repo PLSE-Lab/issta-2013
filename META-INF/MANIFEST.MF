@@ -4,5 +4,6 @@ Bundle-Name: ISSTA_2013
 Bundle-SymbolicName: ISSTA_2013
 Bundle-Version: 1.0.0
 Require-Bundle: org.eclipse.imp.pdb.values,
- rascal
+ rascal,
+ PHPAnalysis
 Bundle-RequiredExecutionEnvironment: JavaSE-1.6
