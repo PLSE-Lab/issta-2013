@@ -3,6 +3,7 @@
 	<name>ISSTA 2013</name>
 	<comment></comment>
 	<projects>
+		<project>PHPAnalysis</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

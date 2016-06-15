@@ -11,17 +11,25 @@ module lang::php::experiments::issta2013::ISSTA2013
 import lang::php::util::Utils;
 import lang::php::stats::Overall;
 import lang::php::stats::Unfriendly;
-import lang::rascal::types::AbstractType;
 import lang::php::util::Corpus;
+import lang::php::ast::AbstractSyntax;
+import lang::php::ast::System;
+import lang::php::util::Config;
+import lang::php::analysis::includes::IncludesInfo;
+import lang::php::analysis::includes::QuickResolve;
+
+import lang::rascal::types::AbstractType;
 
 import IO;
+import ValueIO;
 import Type;
 import List;
 import Set;
 import Map;
+import DateTime;
 
 import lang::csv::IO;
-import Sizes = |csv+rascal://src/lang/php/extract/csvs/linesPerFile.csv?funname=getLines|;
+import Sizes = |csv+project://PHPAnalysis/src/lang/php/extract/csvs/linesPerFile.csv?funname=getLines|;
 
 private Corpus issta13Corpus = (
 	"osCommerce":"2.3.1",
@@ -46,6 +54,81 @@ private Corpus issta13Corpus = (
 
 public Corpus getISSTA2013Corpus() = issta13Corpus;
 
+public void buildCorpusBinaries(bool overwrite=false) {
+	for (p <- issta13Corpus, v := issta13Corpus[p]) {
+		if (!binaryExists(p,v) || overwrite) {
+			buildBinaries(p,v);
+		}
+	}
+}
+
+public void buildCorpusIncludesInfo() {
+	for (p <- issta13Corpus, v := issta13Corpus[p]) {
+		System sys = loadBinary(p,v);
+		buildIncludesInfo(sys);
+	}
+}
+
+private loc infoLoc = baseLoc + "serialized/quickResolved";
+
+public void extractCorpusQuickIncludes() {
+	for (p <- issta13Corpus, v := issta13Corpus[p]) {
+		System sys = loadBinary(p,v);
+		if (!includesInfoExists(p,v)) buildIncludesInfo(sys);
+		IncludesInfo iinfo = loadIncludesInfo(p, v);
+		rel[loc,loc,loc] res = { };
+		map[loc,Duration] timings = ( );
+		println("Resolving for <size(sys.files<0>)> files");
+		counter = 0;
+		for (l <- sys.files) {
+			dt1 = now();
+			qr = quickResolve(sys, iinfo, l, sys.baseLoc);
+			dt2 = now();
+			res = res + { < l, ll, lr > | < ll, lr > <- qr };
+			counter += 1;
+			if (counter % 100 == 0) {
+				println("Resolved <counter> files");
+			}
+			timings[l] = (dt2 - dt1);
+		}
+		writeBinaryValueFile(infoLoc + "<p>-<v>-qr.bin", res);
+		writeBinaryValueFile(infoLoc + "<p>-<v>-qrtime.bin", timings);
+	}
+}
+
+private FMap loadOrGenerateFeatureMap(bool regenerateMap) {
+	FMap fmap = ( );
+	if (regenerateMap || !featsMapExists()) {
+		fmap = getFMap();
+		saveFeatsMap(fmap);
+	} else {
+		fmap = loadFeatsMap();
+	}
+	return fmap;
+}
+
+private FeatureLattice loadOrGenerateFeatureLattice(bool regenerateLattice, FMap fmap) {
+	FeatureLattice fl = { };
+	if (regenerateLattice || !featureLatticeExists()) {
+		fl = calculateFeatureLattice(fmap);
+		saveFeatureLattice(fl);
+	} else {
+		fl = loadFeatureLattice();
+	}
+	return fl;
+}
+
+private CoverageMap loadOrGenerateCoverageMap(bool regenerateCoverageMap, FMap fmap, FeatureLattice fl) {
+	CoverageMap coverageMap = ( );
+	if (regenerateCoverageMap || !coverageMapExists()) {
+		coverageMap = featuresForAllPercents(fmap, fl);
+		saveCoverageMap(coverageMap);
+	} else {
+		coverageMap = loadCoverageMap();
+	}
+	return coverageMap;
+}
+
 public str generateTable1() {
 	issta = getISSTA2013Corpus();
 	return generateCorpusInfoTable(issta);
@@ -55,17 +138,9 @@ public str generateFigure1() {
 	return fileSizesHistogram(getLines());
 }
 
-public str generateTable2() {
-	// NOTE: The computations performed by the following two
-	// computations are quite expensive, so the results have
-	// been serialized. To actually run the computations, just
-	// uncomment the following two lines and comment out the
-	// two below.
-	//fmap = getFMap();
-	//fl = calculateFeatureLattice(fmap);
-	
-	fmap = readFeatsMap();
-	fl = loadFeatureLattice();
+public str generateTable2(bool regenerateMap=false, bool regenerateLattice=false) {
+	FMap fmap = loadOrGenerateFeatureMap(regenerateMap);	
+	FeatureLattice fl = loadOrGenerateFeatureLattice(regenerateLattice, fmap);
 
 	fByPer = featuresForPercents(fmap,fl,[80,90,100]);
 	labels = [ l | /label(l,_) := getMapRangeType((#FMap).symbol)];
@@ -77,37 +152,27 @@ public str generateTable2() {
 	return groupsTable(notIn80, notIn90, notIn100);
 }
 
-public str generateFigure2() {
-	// The call to calculate this is shown above in the code to
-	// generate table 2; this just loads the serialized data.
-	fmap = readFeatsMap();
-	
+public str generateFigure2(bool regenerateMap=false) {
+	FMap fmap = loadOrGenerateFeatureMap(regenerateMap);	
+
 	return generalFeatureSquiglies(fmap);
 }
 
-public str generateFigure3() {
-	// The feature lattice and feature map are both serialized;
-	// see above for code that will calculate them from scratch.
-	//fmap = getFMap();
-	//fl = calculateFeatureLattice(fmap);
-	fmap = readFeatsMap();
-	fl = loadFeatureLattice();
-
-	// The coverage map is also serialized, uncomment the following
-	// and comment out the line after to recompute it.	
-	//coverageMap = featuresForAllPercents(fmap, fl);
-	coverageMap = loadCoverageMap();
+public str generateFigure3(bool regenerateMap=false, bool regenerateLattice=false, bool regenerateCoverageMap=false) {
+	FMap fmap = loadOrGenerateFeatureMap(regenerateMap);	
+	FeatureLattice fl = loadOrGenerateFeatureLattice(regenerateLattice, fmap);
+	CoverageMap coverageMap = loadOrGenerateCoverageMap(regenerateCoverageMap, fmap, fl);
 
 	return coverageGraph(coverageMap);
 }
 
-public str generateTable3() {
+public str generateTable3(bool regenerateMap=false, bool regenerateLattice=false, bool regenerateCoverageMap=false) {
 	issta = getISSTA2013Corpus();
 
-	// The feature lattice and coverage map are both serialized;
-	// see above for code that will calculate them from scratch.
-	fl = loadFeatureLattice();
-	coverageMap = loadCoverageMap();
+	FMap fmap = loadOrGenerateFeatureMap(regenerateMap);	
+	FeatureLattice fl = loadOrGenerateFeatureLattice(regenerateLattice, fmap);
+	CoverageMap coverageMap = loadOrGenerateCoverageMap(regenerateCoverageMap, fmap, fl);
+
 	ncm = notCoveredBySystem(issta, fl, coverageMap);
 	return coverageComparison(issta,ncm);
 }
