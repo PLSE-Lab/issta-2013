@@ -31,6 +31,7 @@ import DateTime;
 import lang::csv::IO;
 import Sizes = |csv+project://PHPAnalysis/src/lang/php/extract/csvs/linesPerFile.csv?funname=getLines|;
 
+@doc{The corpus used in this experiment}
 private Corpus issta13Corpus = (
 	"osCommerce":"2.3.1",
 	"ZendFramework":"1.11.12",
@@ -54,6 +55,7 @@ private Corpus issta13Corpus = (
 
 public Corpus getISSTA2013Corpus() = issta13Corpus;
 
+@doc{Parse all the corpus systems and save the ASTs}
 public void buildCorpusBinaries(bool overwrite=false) {
 	for (p <- issta13Corpus, v := issta13Corpus[p]) {
 		if (!binaryExists(p,v) || overwrite) {
@@ -62,6 +64,7 @@ public void buildCorpusBinaries(bool overwrite=false) {
 	}
 }
 
+@doc{Extract all the quick includes info (used by the quick includes process) for the corpus}
 public void buildCorpusIncludesInfo() {
 	for (p <- issta13Corpus, v := issta13Corpus[p]) {
 		System sys = loadBinary(p,v);
@@ -69,31 +72,45 @@ public void buildCorpusIncludesInfo() {
 	}
 }
 
+@doc{The location where the includes info is stored}
 private loc infoLoc = baseLoc + "serialized/quickResolved";
 
+// TODO: This may be better placed in the logic for the quick resolve functionality
+// so it can be reused in multiple analyses.
+@doc{Extract the quick includes info for the given system product and version}
+public void extractSystemQuickIncludes(str p, str v) {
+	System sys = loadBinary(p,v);
+	if (!includesInfoExists(p,v)) buildIncludesInfo(sys);
+	IncludesInfo iinfo = loadIncludesInfo(p, v);
+	rel[loc,loc,loc] res = { };
+	map[loc,Duration] timings = ( );
+	println("Resolving for <size(sys.files<0>)> files");
+	counter = 0;
+	for (l <- sys.files) {
+		dt1 = now();
+		qr = quickResolve(sys, iinfo, l, sys.baseLoc);
+		dt2 = now();
+		res = res + { < l, ll, lr > | < ll, lr > <- qr };
+		counter += 1;
+		if (counter % 100 == 0) {
+			println("Resolved <counter> files");
+		}
+		timings[l] = (dt2 - dt1);
+	}
+	writeBinaryValueFile(infoLoc + "<p>-<v>-qr.bin", res);
+	writeBinaryValueFile(infoLoc + "<p>-<v>-qrtime.bin", timings);
+}
+
+@doc{Extract the quick includes info for all systems in the corpus}
 public void extractCorpusQuickIncludes() {
 	for (p <- issta13Corpus, v := issta13Corpus[p]) {
-		System sys = loadBinary(p,v);
-		if (!includesInfoExists(p,v)) buildIncludesInfo(sys);
-		IncludesInfo iinfo = loadIncludesInfo(p, v);
-		rel[loc,loc,loc] res = { };
-		map[loc,Duration] timings = ( );
-		println("Resolving for <size(sys.files<0>)> files");
-		counter = 0;
-		for (l <- sys.files) {
-			dt1 = now();
-			qr = quickResolve(sys, iinfo, l, sys.baseLoc);
-			dt2 = now();
-			res = res + { < l, ll, lr > | < ll, lr > <- qr };
-			counter += 1;
-			if (counter % 100 == 0) {
-				println("Resolved <counter> files");
-			}
-			timings[l] = (dt2 - dt1);
-		}
-		writeBinaryValueFile(infoLoc + "<p>-<v>-qr.bin", res);
-		writeBinaryValueFile(infoLoc + "<p>-<v>-qrtime.bin", timings);
+		extractSystemQuickIncludes(p,v);
 	}
+}
+
+@doc{Load all quick includes info for the corpus}
+public map[tuple[str p, str v],rel[loc,loc,loc]] loadCorpusIncludes() {
+	return ( <p,v> : readBinaryValueFile(#rel[loc,loc,loc], infoLoc + "<p>-<v>-qr.bin") |  p <- issta13Corpus, v := issta13Corpus[p] );
 }
 
 private FMap loadOrGenerateFeatureMap(bool regenerateMap) {
@@ -127,6 +144,26 @@ private CoverageMap loadOrGenerateCoverageMap(bool regenerateCoverageMap, FMap f
 		coverageMap = loadCoverageMap();
 	}
 	return coverageMap;
+}
+
+private ICResult loadOrGenerateIncludesCounts(bool regenerateIncludesCounts) {
+	ICResult res = ( );
+	if (regenerateIncludesCounts || !includesCountsExists()) {
+		for (p <- issta13Corpus, v := issta13Corpus[p]) {
+			System sys = loadBinary(p,v);
+			if (!exists(infoLoc + "<p>-<v>-qr.bin")) {
+				extractSystemQuickIncludes(p,v);
+			}
+			rel[loc,loc,loc] quickIncludes = readBinaryValueFile(#rel[loc,loc,loc], infoLoc + "<p>-<v>-qr.bin");
+			countsTuple = calculateSystemIncludesCounts(sys, quickIncludes);
+			res[<p,v>] = countsTuple;
+		}
+		saveIncludesCounts(res);
+	} else {
+		res = loadIncludesCounts();
+	}
+	
+	return res;
 }
 
 public str generateTable1() {
@@ -177,24 +214,21 @@ public str generateTable3(bool regenerateMap=false, bool regenerateLattice=false
 	return coverageComparison(issta,ncm);
 }
 
-public str generateTable4() {
+public str generateTable4(bool regenerateCounts=false) {
 	issta = getISSTA2013Corpus();
-
-	// As above, the following is quite expensive, so the result
-	// has been serialized. Just uncomment the following line, and
-	// comment out the line below it, to run the analysis from scratch.
-	//icl = includesAnalysis(issta);
-	
-	icl = reload();
-	icr = calculateIncludeCounts(icl);
+	icr = loadOrGenerateIncludesCounts(regenerateCounts);
 	icounts = includeCounts(issta);
 	return generateIncludeCountsTable(icr, icounts);
 }
 
 public str generateTable5() {
+	// TODO: Pick up here. We can create a similar include graph by taking
+	// the first and third projections of the quick resolve relation, which
+	// will tell us which files can be reached from which other files.
 	issta = getISSTA2013Corpus();
+	corpusIncludes = loadCorpusIncludes();
 	< vvuses, vvcalls, vvmcalls, vvnews, vvprops, vvcconsts, vvscalls, vvstargets, vvsprops, vvsptargets > = getAllVV(issta);
-	trans = calculateVVTransIncludes(vvuses, vvcalls, vvmcalls, vvnews, vvprops, vvcconsts, vvscalls, vvstargets, vvsprops, vvsptargets, issta);
+	trans = calculateVVTransIncludes(vvuses, vvcalls, vvmcalls, vvnews, vvprops, vvcconsts, vvscalls, vvstargets, vvsprops, vvsptargets, issta, corpusIncludes);
 	return showVVInfoAsLatex(vvuses, vvcalls, vvmcalls, vvnews, vvprops,
 		vvuses + vvcalls + vvmcalls + vvnews + vvprops + vvcconsts + vvscalls +
 		vvstargets + vvsprops + vvsptargets, trans, issta);
@@ -207,17 +241,19 @@ public str generateTable6() {
 
 public str generateTable7() {
 	issta = getISSTA2013Corpus();
+	corpusIncludes = loadCorpusIncludes();	
 	mmr = magicMethodUses(issta);
-	trans = calculateMMTransIncludes(issta,mmr);
+	trans = calculateMMTransIncludes(issta, mmr, corpusIncludes);
 	return magicMethodCounts(issta, mmr, trans);
 }
 
 public str generateTable8() {
 	issta = getISSTA2013Corpus();
+	corpusIncludes = loadCorpusIncludes();	
 	evalUses = corpusEvalUses(issta);
-	transUses = calculateEvalTransIncludes(issta, evalUses);
+	transUses = calculateEvalTransIncludes(issta, evalUses, corpusIncludes);
 	fuses = createFunctionUses(corpusFunctionUses(issta));
-	ftransUses = calculateFunctionTransIncludes(issta, fuses);
+	ftransUses = calculateFunctionTransIncludes(issta, fuses, corpusIncludes);
 	
 	return evalCounts(issta, evalUses, fuses, transUses, ftransUses);
 }
@@ -225,20 +261,22 @@ public str generateTable8() {
 public str generateTable9() {
 	rel[str,str,int] allCallsCounts = { };
 	issta = getISSTA2013Corpus();
+	corpusIncludes = loadCorpusIncludes();	
 	for (p <- issta) {
 		allcalls = allCalls(domainR(issta,{p}));
 		allCallsCounts += < p, issta[p], size(allcalls) >;
 	}
 	vcalls = varargsCalls(issta);
 	vdefs = varargsFunctionsAndMethods(issta);
-	vcallsTrans = calculateFunctionTransIncludes(issta, vcalls<0,1,2,3>);
+	vcallsTrans = calculateFunctionTransIncludes(issta, vcalls<0,1,2,3>, corpusIncludes);
 	return showVarArgsUses(issta, vdefs, vcalls, allCallsCounts, vcallsTrans);
 }
 
 public str generateTable10() {
 	issta = getISSTA2013Corpus();
+	corpusIncludes = loadCorpusIncludes();	
 	fuses = invokeFunctionUses(corpusFunctionUses(issta));
-	ftrans = calculateFunctionTransIncludes(issta, fuses);
+	ftrans = calculateFunctionTransIncludes(issta, fuses, corpusIncludes);
 	return invokeFunctionUsesCounts(issta, fuses, ftrans);
 }
 
