@@ -13,7 +13,7 @@ which is required to use the code here.
 [mh]: http://www.cs.ecu.edu/hillsma
 [pk]: http://homepages.cwi.nl/~paulk/
 [jv]: http://homepages.cwi.nl/~jurgenv/
-[ISSTA-paper]: http://www.cs.ecu.edu/hillsma/publications/phpair-csmr.pdf
+[ISSTA-paper]: http://www.cs.ecu.edu/hillsma/publications/php-feature-usage.pdf
 [ISSTA-2013]: http://issta2013.inf.usi.ch/
 [PAiR]: https://github.com/cwi-swat/php-analysis
 [Rascal]: http://www.rascal-mpl.org/
