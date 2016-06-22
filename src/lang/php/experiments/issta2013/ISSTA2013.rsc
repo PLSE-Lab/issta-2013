@@ -113,6 +113,7 @@ public map[tuple[str p, str v],rel[loc,loc,loc]] loadCorpusIncludes() {
 	return ( <p,v> : readBinaryValueFile(#rel[loc,loc,loc], infoLoc + "<p>-<v>-qr.bin") |  p <- issta13Corpus, v := issta13Corpus[p] );
 }
 
+@doc{Load the feature map; generate it if it doesn't exist or user requests regeneration.}
 private FMap loadOrGenerateFeatureMap(bool regenerateMap) {
 	FMap fmap = ( );
 	if (regenerateMap || !featsMapExists()) {
@@ -124,6 +125,7 @@ private FMap loadOrGenerateFeatureMap(bool regenerateMap) {
 	return fmap;
 }
 
+@doc{Load the feature lattice; generate it if it doesn't exist or user requests regeneration.}
 private FeatureLattice loadOrGenerateFeatureLattice(bool regenerateLattice, FMap fmap) {
 	FeatureLattice fl = { };
 	if (regenerateLattice || !featureLatticeExists()) {
@@ -135,6 +137,7 @@ private FeatureLattice loadOrGenerateFeatureLattice(bool regenerateLattice, FMap
 	return fl;
 }
 
+@doc{Load the coverage map; generate it if it doesn't exist or user requests regeneration.}
 private CoverageMap loadOrGenerateCoverageMap(bool regenerateCoverageMap, FMap fmap, FeatureLattice fl) {
 	CoverageMap coverageMap = ( );
 	if (regenerateCoverageMap || !coverageMapExists()) {
@@ -146,6 +149,7 @@ private CoverageMap loadOrGenerateCoverageMap(bool regenerateCoverageMap, FMap f
 	return coverageMap;
 }
 
+@doc{Load the includes counts map; generate it if it doesn't exist or user requests regeneration.}
 private ICResult loadOrGenerateIncludesCounts(bool regenerateIncludesCounts) {
 	ICResult res = ( );
 	if (regenerateIncludesCounts || !includesCountsExists()) {
@@ -166,15 +170,18 @@ private ICResult loadOrGenerateIncludesCounts(bool regenerateIncludesCounts) {
 	return res;
 }
 
+@doc{Generate Table 1 from the ISSTA 2013 paper, which shows details of the corpus.}
 public str generateTable1() {
 	issta = getISSTA2013Corpus();
 	return generateCorpusInfoTable(issta);
 }
 
+@doc{Generate Figure 1 from the ISSTA 2013 paper, which shows a histogram of file sizes.}
 public str generateFigure1() {
 	return fileSizesHistogram(getLines());
 }
 
+@doc{Generate Table 2 from the ISSTA 2013 paper, which shows which features are commonly used/not used in the corpus.}
 public str generateTable2(bool regenerateMap=false, bool regenerateLattice=false) {
 	FMap fmap = loadOrGenerateFeatureMap(regenerateMap);	
 	FeatureLattice fl = loadOrGenerateFeatureLattice(regenerateLattice, fmap);
@@ -189,12 +196,14 @@ public str generateTable2(bool regenerateMap=false, bool regenerateLattice=false
 	return groupsTable(notIn80, notIn90, notIn100);
 }
 
+@doc{Generate Figure 2 from the ISSTA 2013 paper, which shows which feature groups appear in which percent of the files in the corpus.}
 public str generateFigure2(bool regenerateMap=false) {
 	FMap fmap = loadOrGenerateFeatureMap(regenerateMap);	
 
 	return generalFeatureSquiglies(fmap);
 }
 
+@doc{Generate Figure 3 from the ISSTA 2013 paper, which shows the number of features needed to cover specific percentages of the corpus files.}
 public str generateFigure3(bool regenerateMap=false, bool regenerateLattice=false, bool regenerateCoverageMap=false) {
 	FMap fmap = loadOrGenerateFeatureMap(regenerateMap);	
 	FeatureLattice fl = loadOrGenerateFeatureLattice(regenerateLattice, fmap);
@@ -203,6 +212,7 @@ public str generateFigure3(bool regenerateMap=false, bool regenerateLattice=fals
 	return coverageGraph(coverageMap);
 }
 
+@doc{Generate Table 3 from the ISSTA 2013 paper, which shows how much of each corpus system is covered by the 80% and 90% feature sets.}
 public str generateTable3(bool regenerateMap=false, bool regenerateLattice=false, bool regenerateCoverageMap=false) {
 	issta = getISSTA2013Corpus();
 
@@ -214,6 +224,7 @@ public str generateTable3(bool regenerateMap=false, bool regenerateLattice=false
 	return coverageComparison(issta,ncm);
 }
 
+@doc{Generate Table 4 from the ISSTA 2013 paper, which gives details on dynamic includes.}
 public str generateTable4(bool regenerateCounts=false) {
 	issta = getISSTA2013Corpus();
 	icr = loadOrGenerateIncludesCounts(regenerateCounts);
@@ -221,10 +232,8 @@ public str generateTable4(bool regenerateCounts=false) {
 	return generateIncludeCountsTable(icr, icounts);
 }
 
+@doc{Generate Table 5 from the ISSTA 2013 paper, which gives details on variable features.}
 public str generateTable5() {
-	// TODO: Pick up here. We can create a similar include graph by taking
-	// the first and third projections of the quick resolve relation, which
-	// will tell us which files can be reached from which other files.
 	issta = getISSTA2013Corpus();
 	corpusIncludes = loadCorpusIncludes();
 	< vvuses, vvcalls, vvmcalls, vvnews, vvprops, vvcconsts, vvscalls, vvstargets, vvsprops, vvsptargets > = getAllVV(issta);
@@ -234,11 +243,13 @@ public str generateTable5() {
 		vvstargets + vvsprops + vvsptargets, trans, issta);
 }
 
+@doc{Generate Table 6 from the ISSTA 2013 paper, which shows how many dynamic includes should be resolvable statically, based on manual inspection.}
 public str generateTable6() {
 	issta = getISSTA2013Corpus();
 	return vvUsagePatternsTable(issta);
 }
 
+@doc{Generate Table 7 from the ISSTA 2013 paper, which gives details on magic methods.}
 public str generateTable7() {
 	issta = getISSTA2013Corpus();
 	corpusIncludes = loadCorpusIncludes();	
@@ -247,6 +258,7 @@ public str generateTable7() {
 	return magicMethodCounts(issta, mmr, trans);
 }
 
+@doc{Generate Table 8 from the ISSTA 2013 paper, which gives details on eval and create_function.}
 public str generateTable8() {
 	issta = getISSTA2013Corpus();
 	corpusIncludes = loadCorpusIncludes();	
@@ -258,6 +270,7 @@ public str generateTable8() {
 	return evalCounts(issta, evalUses, fuses, transUses, ftransUses);
 }
 
+@doc{Generate Table 9 from the ISSTA 2013 paper, which gives details on varags functions.}
 public str generateTable9() {
 	rel[str,str,int] allCallsCounts = { };
 	issta = getISSTA2013Corpus();
@@ -272,6 +285,7 @@ public str generateTable9() {
 	return showVarArgsUses(issta, vdefs, vcalls, allCallsCounts, vcallsTrans);
 }
 
+@doc{Generate Table 10 from the ISSTA 2013 paper, which gives details on dynamic invocation.}
 public str generateTable10() {
 	issta = getISSTA2013Corpus();
 	corpusIncludes = loadCorpusIncludes();	
