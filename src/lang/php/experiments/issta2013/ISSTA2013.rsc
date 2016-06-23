@@ -79,6 +79,8 @@ private loc infoLoc = baseLoc + "serialized/quickResolved";
 // so it can be reused in multiple analyses.
 @doc{Extract the quick includes info for the given system product and version}
 public void extractSystemQuickIncludes(str p, str v) {
+	if (!exists(infoLoc)) mkDirectory(infoLoc);
+
 	System sys = loadBinary(p,v);
 	if (!includesInfoExists(p,v)) buildIncludesInfo(sys);
 	IncludesInfo iinfo = loadIncludesInfo(p, v);
