@@ -245,7 +245,7 @@ public str generateTable5() {
 		vvstargets + vvsprops + vvsptargets, trans, issta);
 }
 
-@doc{Generate Table 6 from the ISSTA 2013 paper, which shows how many dynamic includes should be resolvable statically, based on manual inspection.}
+@doc{Generate Table 6 from the ISSTA 2013 paper, which shows how many variable variables should be resolvable statically, based on manual inspection.}
 public str generateTable6() {
 	issta = getISSTA2013Corpus();
 	return vvUsagePatternsTable(issta);
